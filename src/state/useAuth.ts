@@ -6,7 +6,7 @@ const STORAGE_KEY = 'duitkita_unlocked';
 
 export function useAuth() {
   const [unlocked, setUnlocked] = useState<boolean>(() => {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+    return sessionStorage.getItem(STORAGE_KEY) === 'true';
   });
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +18,7 @@ export function useAuth() {
     const hash = await sha256Hex(pin);
     if (hash === PIN_HASH) {
       setUnlocked(true);
-      localStorage.setItem(STORAGE_KEY, 'true');
+      sessionStorage.setItem(STORAGE_KEY, 'true');
       setError(null);
       return true;
     }
@@ -28,7 +28,7 @@ export function useAuth() {
 
   const lock = useCallback(() => {
     setUnlocked(false);
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   }, []);
 
   return { unlocked, unlock, lock, error };
