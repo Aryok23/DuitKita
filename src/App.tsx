@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './state/useAuth';
 import { useNetworkStatus } from './state/useNetworkStatus';
 import { getCurrentMonth } from './utils/date';
 import { ExpenseCard } from './components/expense/ExpenseCard';
 import { ExpenseFilterTabs } from './components/expense/ExpenseFilterTabs';
 import { ExpenseSummary } from './components/expense/ExpenseSummary';
+import { SkeletonCard } from './components/ui/SkeletonCard';
+import { SkeletonSummary } from './components/ui/SkeletonSummary';
 import { PrimaryButton } from './components/ui/PrimaryButton';
 import { db } from './db/indexedDb';
 import type { Expense } from './models/expense';
@@ -47,59 +49,51 @@ const App: React.FC = () => {
   const [month, setMonth] = useState<string>(() => getCurrentMonth());
   const monthLabel = useMemo(() => formatMonthLabel(month), [month]);
 
-  useEffect(() => {
-    if (!unlocked) return;
-
-    async function load() {
+  // ─── Centralised data loader so it can be called after add/delete too ───
+  const loadData = useCallback(
+    async (targetMonth: string) => {
       setLoading(true);
       try {
         if (online) {
           await runSync();
           const [expRes, sumRes] = await Promise.all([
-            apiGetExpenses(month),
-            apiGetSummary(month)
+            apiGetExpenses(targetMonth),
+            apiGetSummary(targetMonth)
           ]);
           setExpenses(expRes.expenses);
           setSummary(sumRes);
-          await db.expenses.where('month').equals(month).delete();
+          // Keep IndexedDB in sync with server data
+          await db.expenses.where('month').equals(targetMonth).delete();
           await db.expenses.bulkAdd(
-            expRes.expenses.map((e) => ({ ...e, month, isPending: false, isDeleted: false }))
+            expRes.expenses.map((e) => ({ ...e, month: targetMonth, isPending: false, isDeleted: false }))
           );
         } else {
-          const local = await db.expenses.where('month').equals(month).toArray();
+          const local = await db.expenses.where('month').equals(targetMonth).toArray();
           setExpenses(local.filter((e) => !e.isDeleted));
-          if (!summary) {
-            const total = local.reduce((acc, e) => acc + e.amount, 0);
-            const perPaidBy: Record<string, number> = {
-              Ibu: 0,
-              Rosita: 0,
-              Aryo: 0,
-              Shafa: 0,
-              Together: 0
-            };
-            local.forEach((e) => {
-              if (perPaidBy[e.paidBy] != null) perPaidBy[e.paidBy] += e.amount;
-            });
-            setSummary({
-              month,
-              total,
-              perPaidBy,
-              perCategory: {}
-            });
-          }
+          const total = local.reduce((acc, e) => acc + e.amount, 0);
+          const perPaidBy: Record<string, number> = {
+            Ibu: 0,
+            Rosita: 0,
+            Aryo: 0,
+            Shafa: 0,
+            Together: 0
+          };
+          local.forEach((e) => {
+            if (perPaidBy[e.paidBy] != null) perPaidBy[e.paidBy] += e.amount;
+          });
+          setSummary({ month: targetMonth, total, perPaidBy, perCategory: {} });
         }
       } finally {
         setLoading(false);
       }
-    }
-
-    void load();
-  }, [unlocked, online, month]);
+    },
+    [online]
+  );
 
   useEffect(() => {
-    if (!unlocked || !online) return;
-    void runSync();
-  }, [unlocked, online]);
+    if (!unlocked) return;
+    void loadData(month);
+  }, [unlocked, online, month, loadData]);
 
   const filteredExpenses = useMemo(() => {
     if (filter === 'All') return expenses.filter((e) => !e.isDeleted);
@@ -126,6 +120,7 @@ const App: React.FC = () => {
       isDeleted: false
     };
 
+    // Optimistic update
     setExpenses((prev) => [expense, ...prev]);
     await db.expenses.put(expense);
     await db.pendingQueue.add({
@@ -140,6 +135,8 @@ const App: React.FC = () => {
 
     if (online) {
       await runSync();
+      // Refresh to remove Pending badge and update summary
+      await loadData(month);
     }
   }
 
@@ -160,9 +157,12 @@ const App: React.FC = () => {
     });
     if (online) {
       await runSync();
+      // Refresh expenses and summary after deletion
+      await loadData(month);
     }
   }
 
+  // ─── PIN screen ───────────────────────────────────────────────────────────
   if (!unlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -175,9 +175,13 @@ const App: React.FC = () => {
             type="password"
             inputMode="numeric"
             maxLength={6}
+            autoFocus
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-center tracking-[0.5em] text-lg"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void unlock(pin);
+            }}
           />
           {pinError && <div className="text-xs text-red-500 text-center">{pinError}</div>}
           <PrimaryButton
@@ -192,6 +196,7 @@ const App: React.FC = () => {
     );
   }
 
+  // ─── Main screen ──────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="px-4 pt-4 pb-2 flex items-center justify-between">
@@ -216,29 +221,35 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="text-xs text-gray-500 flex items-center gap-1">
-          <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'} `}>
-
-          </span>
-          <span>
-            {online ? 'Online' : 'Offline'}
-          </span>
+          <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span>{online ? 'Online' : 'Offline'}</span>
           {loading && <span className="text-gray-400"> • memuat...</span>}
         </div>
       </header>
 
       <main className="px-4 pb-24 flex-1 flex flex-col gap-2">
-        {summary && (
+        {/* Summary — show skeleton while first load */}
+        {loading && !summary ? (
+          <SkeletonSummary />
+        ) : summary ? (
           <ExpenseSummary
             monthLabel={monthLabel}
             total={summary.total}
             perPaidBy={summary.perPaidBy}
           />
-        )}
+        ) : null}
 
         <ExpenseFilterTabs value={filter} onChange={setFilter} />
 
         <div className="flex-1 flex flex-col gap-2 mt-1 mb-2">
-          {filteredExpenses.length === 0 ? (
+          {loading && expenses.length === 0 ? (
+            // Skeleton cards while initial load
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : filteredExpenses.length === 0 ? (
             <div className="text-xs text-gray-400 text-center mt-8">
               Belum ada pengeluaran bulan ini.
             </div>
@@ -256,7 +267,7 @@ const App: React.FC = () => {
         </div>
 
         {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-end justify-center">
+          <div className="fixed inset-0 bg-black/40 flex items-end justify-center z-10">
             <div className="w-full max-w-md bg-white rounded-t-2xl p-4 pb-6">
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm font-semibold">Tambah pengeluaran</div>
@@ -280,16 +291,18 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <button
-        onClick={() => setShowForm(true)}
-        className="fixed bottom-6 right-6 rounded-full bg-black text-white w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
-        aria-label="Tambah pengeluaran"
-      >
-        +
-      </button>
+      {/* Hide FAB when form is open */}
+      {!showForm && (
+        <button
+          onClick={() => setShowForm(true)}
+          className="fixed bottom-6 right-6 rounded-full bg-black text-white w-14 h-14 shadow-lg flex items-center justify-center text-2xl z-20"
+          aria-label="Tambah pengeluaran"
+        >
+          +
+        </button>
+      )}
     </div>
   );
 };
 
 export default App;
-

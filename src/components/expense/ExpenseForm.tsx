@@ -31,7 +31,8 @@ interface Props {
 }
 
 export const ExpenseForm: React.FC<Props> = ({ initial, onSubmit }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? '');
   const [item, setItem] = useState(initial?.item ?? '');
   const [category, setCategory] = useState<Category>(initial?.category ?? 'Food');
