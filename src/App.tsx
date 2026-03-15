@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from './state/useAuth';
 import { useNetworkStatus } from './state/useNetworkStatus';
 import { getCurrentMonth } from './utils/date';
@@ -209,7 +209,7 @@ const App: React.FC = () => {
               className="px-2 py-1 rounded-full text-xs bg-gray-200"
               onClick={() => setMonth((prev) => shiftMonth(prev, -1))}
             >
-              ‹
+              <ChevronLeft size={16} strokeWidth={2} />
             </button>
             <div className="text-base font-semibold">{monthLabel}</div>
             <button
@@ -217,7 +217,7 @@ const App: React.FC = () => {
               className="px-2 py-1 rounded-full text-xs bg-gray-200"
               onClick={() => setMonth((prev) => shiftMonth(prev, 1))}
             >
-              ›
+              <ChevronRight size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
