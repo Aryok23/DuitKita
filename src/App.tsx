@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useAuth } from './state/useAuth';
 import { useNetworkStatus } from './state/useNetworkStatus';
 import { getCurrentMonth } from './utils/date';
@@ -228,7 +229,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="px-4 pb-24 flex-1 flex flex-col gap-2">
-        {/* Summary — show skeleton while first load */}
+        {/* Summary — full skeleton on first load, partial (numbers only) on month switch */}
         {loading && !summary ? (
           <SkeletonSummary />
         ) : summary ? (
@@ -236,14 +237,15 @@ const App: React.FC = () => {
             monthLabel={monthLabel}
             total={summary.total}
             perPaidBy={summary.perPaidBy}
+            loading={loading}
           />
         ) : null}
 
         <ExpenseFilterTabs value={filter} onChange={setFilter} />
 
         <div className="flex-1 flex flex-col gap-2 mt-1 mb-2">
-          {loading && expenses.length === 0 ? (
-            // Skeleton cards while initial load
+          {loading ? (
+            // Skeleton cards while loading (initial load OR month switch)
             <>
               <SkeletonCard />
               <SkeletonCard />
@@ -295,10 +297,10 @@ const App: React.FC = () => {
       {!showForm && (
         <button
           onClick={() => setShowForm(true)}
-          className="fixed bottom-6 right-6 rounded-full bg-black text-white w-14 h-14 shadow-lg flex items-center justify-center text-2xl z-20"
+          className="fixed bottom-6 right-6 rounded-full bg-black text-white w-14 h-14 shadow-lg flex items-center justify-center z-20"
           aria-label="Tambah pengeluaran"
         >
-          +
+          <Plus size={24} strokeWidth={2} />
         </button>
       )}
     </div>
