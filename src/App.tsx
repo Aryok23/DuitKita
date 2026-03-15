@@ -195,7 +195,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       <header className="px-4 pt-4 pb-2 flex items-center justify-between">
-        <div>
+        <div className="flex flex-col gap-y-1">
           <div className="text-xs text-gray-500">Bulan</div>
           <div className="flex items-center gap-2">
             <button
@@ -215,12 +215,18 @@ const App: React.FC = () => {
             </button>
           </div>
         </div>
-        <div className="text-xs text-gray-500">
-          {online ? 'Online' : 'Offline'} {loading && ' • memuat...'}
+        <div className="text-xs text-gray-500 flex items-center gap-1">
+          <span className={`w-1.5 h-1.5 rounded-full ${online ? 'bg-green-500' : 'bg-red-500'} `}>
+
+          </span>
+          <span>
+            {online ? 'Online' : 'Offline'}
+          </span>
+          {loading && <span className="text-gray-400"> • memuat...</span>}
         </div>
       </header>
 
-      <main className="px-4 pb-24 flex-1 flex flex-col gap-4">
+      <main className="px-4 pb-24 flex-1 flex flex-col gap-2">
         {summary && (
           <ExpenseSummary
             monthLabel={monthLabel}

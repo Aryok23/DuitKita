@@ -12,16 +12,15 @@ interface Props {
 
 export const ExpenseFilterTabs: React.FC<Props> = ({ value, onChange }) => {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-1">
+    <div className="flex gap-2 overflow-x-auto pb-2 pt-3">
       {filters.map((f) => {
         const active = value === f;
         return (
           <button
             key={f}
             onClick={() => onChange(f)}
-            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
-              active ? 'bg-black text-white' : 'bg-gray-200 text-gray-700'
-            }`}
+            className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${active ? 'bg-black text-white' : 'bg-gray-200 text-gray-700'
+              }`}
           >
             {f}
           </button>
