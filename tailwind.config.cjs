@@ -4,6 +4,9 @@ module.exports = {
     extend: {
       colors: {
         primary: '#000000'
+      },
+      fontFamily: {
+        sans: ['Poppins', 'sans-serif'],
       }
     }
   },
